@@ -1,18 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-  #wrap { position:relative; width:100%; aspect-ratio:16/6; overflow:hidden; background:#f5f2ed; }
-  #c { display:block; width:100%; height:100%; }
-  .ui { position:absolute; bottom:16px; right:16px; display:flex; gap:8px; }
-  button {
-    background:transparent; border:1px solid rgba(0,0,0,0.2);
-    color:rgba(0,0,0,0.45); font-size:10px; letter-spacing:0.1em;
-    padding:5px 12px; cursor:pointer; text-transform:uppercase; font-family:monospace;
-  }
-  button:hover { background:rgba(0,0,0,0.06); color:#000; }
+/* --- FULLSCREEN SETUP --- */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Animation wrapper fills viewport */
+#wrap {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #f5f2ed;
+}
+
+/* Canvas fills container */
+#c {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* UI Controls */
+.ui {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.2);
+  color: rgba(0,0,0,0.45);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-family: monospace;
+}
+
+button:hover {
+  background: rgba(0,0,0,0.06);
+  color: #000;
+}
 </style>
+</head>
+
+<body>
 
 <div id="wrap">
   <canvas id="c"></canvas>
+
   <div class="ui">
     <button id="colorBtn">+ Neon</button>
     <button id="pauseBtn">Pause</button>
@@ -22,12 +74,12 @@
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+
 let W, H, t = 0, paused = false, neon = false, animId;
 
 function resize() {
-  const el = canvas.parentElement;
-  W = canvas.width = el.clientWidth;
-  H = canvas.height = el.clientHeight;
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
 }
 resize();
 window.addEventListener('resize', resize);
@@ -50,6 +102,7 @@ function getDotRadius(colX, rowY, waveTop, time) {
   if (distFromWave < -ROW_SPACING * 3) return 0;
 
   let density;
+
   if (distFromWave < 0) {
     density = Math.pow(1 + distFromWave / (ROW_SPACING * 3), 2) * 0.45;
   } else {
@@ -57,14 +110,16 @@ function getDotRadius(colX, rowY, waveTop, time) {
     density = 0.45 + depthRatio * 0.55;
   }
 
-  const wobble = Math.sin(colX * 0.08 + time * 0.0003) * 0.06
-               + Math.sin(rowY * 0.12 + time * 0.00025) * 0.04;
+  const wobble =
+    Math.sin(colX * 0.08 + time * 0.0003) * 0.06 +
+    Math.sin(rowY * 0.12 + time * 0.00025) * 0.04;
 
   const maxR = ROW_SPACING * 0.48;
   return Math.max(0, Math.min(maxR, (density + wobble) * maxR));
 }
 
 function draw(time) {
+
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = neon ? '#0a0a0a' : '#f5f2ed';
   ctx.fillRect(0, 0, W, H);
@@ -73,11 +128,13 @@ function draw(time) {
   const rows = Math.ceil(H / ROW_SPACING) + 1;
 
   for (let ci = 0; ci < cols; ci++) {
+
     const x = ci * COL_SPACING;
     const waveRatio = getWaveHeight(x, time);
     const waveTop = H * (1 - waveRatio);
 
     for (let ri = 0; ri < rows; ri++) {
+
       const y = ri * ROW_SPACING;
       const r = getDotRadius(x, y, waveTop, time);
       if (r < 0.3) continue;
@@ -85,9 +142,10 @@ function draw(time) {
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
 
+      const distFromWave = y - waveTop;
+      const ratio = Math.min(1, Math.max(0, distFromWave / H));
+
       if (neon) {
-        const distFromWave = y - waveTop;
-        const ratio = Math.min(1, Math.max(0, distFromWave / H));
         if (distFromWave < 0) {
           ctx.fillStyle = `rgba(255,20,120,${0.6 + ratio * 0.4})`;
         } else {
@@ -95,34 +153,16 @@ function draw(time) {
           ctx.fillStyle = `rgba(0,${g},80,${0.55 + ratio * 0.45})`;
         }
       } else {
-        const distFromWave = y - waveTop;
-        const ratio = Math.min(1, Math.max(0, distFromWave / H));
-        const alpha = distFromWave < 0
-          ? 0.3 + (1 + distFromWave / (ROW_SPACING * 3)) * 0.5
-          : 0.55 + ratio * 0.45;
+        const alpha =
+          distFromWave < 0
+            ? 0.3 + (1 + distFromWave / (ROW_SPACING * 3)) * 0.5
+            : 0.55 + ratio * 0.45;
+
         ctx.fillStyle = `rgba(10,10,10,${alpha})`;
       }
 
       ctx.fill();
     }
-  }
-
-  if (!neon) {
-    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-    ctx.lineWidth = 0.7;
-    [[30,30,'tl'],[W-30,30,'tr'],[30,H-30,'bl'],[W-30,H-30,'br']].forEach(([x,y,c]) => {
-      const d=6, s=14;
-      ctx.beginPath();
-      if(c==='tl'){ ctx.moveTo(x-s,y);ctx.lineTo(x-d,y);ctx.moveTo(x,y-s);ctx.lineTo(x,y-d); }
-      if(c==='tr'){ ctx.moveTo(x+d,y);ctx.lineTo(x+s,y);ctx.moveTo(x,y-s);ctx.lineTo(x,y-d); }
-      if(c==='bl'){ ctx.moveTo(x-s,y);ctx.lineTo(x-d,y);ctx.moveTo(x,y+d);ctx.lineTo(x,y+s); }
-      if(c==='br'){ ctx.moveTo(x+d,y);ctx.lineTo(x+s,y);ctx.moveTo(x,y+d);ctx.lineTo(x,y+s); }
-      ctx.stroke();
-    });
-    [[16,16],[W-16,16],[16,H-16],[W-16,H-16],[W/2,12],[W/2,H-12]].forEach(([x,y]) => {
-      ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x-9,y);ctx.lineTo(x+9,y);ctx.moveTo(x,y-9);ctx.lineTo(x,y+9); ctx.stroke();
-    });
   }
 }
 
@@ -131,16 +171,21 @@ function frame(ts) {
   draw(t);
   animId = requestAnimationFrame(frame);
 }
+
 animId = requestAnimationFrame(frame);
 
-document.getElementById('pauseBtn').addEventListener('click', function() {
+document.getElementById('pauseBtn').onclick = function () {
   paused = !paused;
   this.textContent = paused ? 'Play' : 'Pause';
-  if (!paused) animId = requestAnimationFrame(frame);
-});
-document.getElementById('colorBtn').addEventListener('click', function() {
+};
+
+document.getElementById('colorBtn').onclick = function () {
   neon = !neon;
   this.textContent = neon ? '− Neon' : '+ Neon';
-  document.getElementById('wrap').style.background = neon ? '#0a0a0a' : '#f5f2ed';
-});
+  document.getElementById('wrap').style.background =
+    neon ? '#0a0a0a' : '#f5f2ed';
+};
 </script>
+
+</body>
+</html>
